@@ -284,7 +284,8 @@ export default function App() {
         method:"POST", headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ type:"region", region:regionName }),
       });
-      setRegionAnalysis(prev => ({ ...prev, [regionName]: await r.json() }));
+      const data = await r.json();
+      setRegionAnalysis(prev => ({ ...prev, [regionName]: data }));
     } catch {
       setRegionAnalysis(prev => ({ ...prev, [regionName]: { error:"Could not load analysis." } }));
     } finally { setLoadingAnalysis(null); }
@@ -299,7 +300,8 @@ export default function App() {
         method:"POST", headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ type:"state", state, region: activeRegion }),
       });
-      setStateAnalysis(prev => ({ ...prev, [state]: await r.json() }));
+      const data = await r.json();
+      setStateAnalysis(prev => ({ ...prev, [state]: data }));
     } catch {
       setStateAnalysis(prev => ({ ...prev, [state]: { error:"Could not load." } }));
     } finally { setLoadingState(null); }
