@@ -68,7 +68,7 @@ function BarRow({ name, value, max, label, sub, color, highlight }) {
     <div style={{ display:"grid", gridTemplateColumns:"180px 1fr 160px", alignItems:"center", gap:12, padding:"4px 0" }}>
       <div style={{ fontFamily: highlight ? "var(--font-display)" : "var(--font-body)",
         fontWeight: highlight ? 700 : 400, fontSize:14,
-        color: highlight ? "#f0ede8" : "#c8c4bc",
+        color: highlight ? "#f0ede8" : "#f0ede8",
         overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
         {name}
       </div>
@@ -76,7 +76,7 @@ function BarRow({ name, value, max, label, sub, color, highlight }) {
         <div style={{ height:"100%", width:`${pct}%`, background:color, borderRadius:99, animation:"dot-bar 0.8s ease forwards" }} />
       </div>
       <div style={{ fontFamily:"var(--font-display)", fontStyle:"italic", fontWeight:300, fontSize:14,
-        color: highlight ? "#f0ede8" : "#c8c4bc", textAlign:"right", whiteSpace:"nowrap" }}>
+        color: highlight ? "#f0ede8" : "#f0ede8", textAlign:"right", whiteSpace:"nowrap" }}>
         {label}{sub && <span style={{ color:"#8a8a84", fontSize:11, marginLeft:6 }}>{sub}</span>}
       </div>
     </div>
@@ -145,14 +145,113 @@ function SortTh({ label, col, sortCol, sortDir, onSort, align="right", className
   );
 }
 
+// ── C: REGION BREAKDOWN PANEL ─────────────────────────────────────────────────
+function RegionBreakout({ region }) {
+  const states = region.stateDetails || [];
+  const colorMap = {};
+  states.forEach((s, i) => { colorMap[s.state] = STATE_COLORS[i % STATE_COLORS.length]; });
+
+  const maxGdp = Math.max(...states.map(s => s.gdp_b || 0), 0.001);
+  const maxInv = Math.max(...states.map(s => s.inv_percap || 0), 0.001);
+  const maxJobs = Math.max(...states.map(s => s.jobs || 0), 0.001);
+
+  const lineItemStates = states
+    .filter(s => s.inv_total && s.inv_baseline && Math.abs(s.inv_total - s.inv_baseline) / s.inv_total > 0.2)
+    .map(s => s.state);
+
+  return (
+    <div className="dot-anim" style={{ padding:"12px 14px 16px", background:"rgba(134,20,66,0.04)", borderTop:"1px solid rgba(255,255,255,0.06)" }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10 }}>
+
+        {/* GDP */}
+        <div style={{ background:"#242422", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"1rem 1.1rem" }}>
+          <div style={{ fontSize:10, fontWeight:500, textTransform:"uppercase", letterSpacing:"0.13em", color:"#861442", marginBottom:10 }}>Creative GDP</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {states.map(s => {
+              const pct = Math.round(((s.gdp_b || 0) / maxGdp) * 100);
+              return (
+                <div key={s.state}>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+                    <span style={{ fontSize:11, fontWeight:600, color:"#f0ede8" }}>{s.state}</span>
+                    <span style={{ fontFamily:"var(--font-display)", fontStyle:"italic", fontWeight:300, fontSize:12, color:"#f0ede8" }}>{fmtB(s.gdp_b)}</span>
+                  </div>
+                  <div style={{ height:5, background:"rgba(255,255,255,0.07)", borderRadius:99, overflow:"hidden" }}>
+                    <div style={{ height:"100%", width:`${pct}%`, background:colorMap[s.state], borderRadius:99, animation:"dot-bar 0.8s ease forwards" }} />
+                  </div>
+                  {s.gdp_pct && <div style={{ fontSize:9, color:"#8a8a84", marginTop:2 }}>{s.gdp_pct}% of GDP</div>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Investment */}
+        <div style={{ background:"#242422", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"1rem 1.1rem" }}>
+          <div style={{ fontSize:10, fontWeight:500, textTransform:"uppercase", letterSpacing:"0.13em", color:"#861442", marginBottom:10 }}>Arts Investment / Cap</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {states.map(s => {
+              const pct = Math.round(((s.inv_percap || 0) / maxInv) * 100);
+              return (
+                <div key={s.state}>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+                    <span style={{ fontSize:11, fontWeight:600, color:"#f0ede8" }}>{s.state}</span>
+                    <span style={{ fontFamily:"var(--font-display)", fontStyle:"italic", fontWeight:300, fontSize:12, color:"#f0ede8" }}>{fmtCap(s.inv_percap)}</span>
+                  </div>
+                  <div style={{ height:5, background:"rgba(255,255,255,0.07)", borderRadius:99, overflow:"hidden" }}>
+                    <div style={{ height:"100%", width:`${pct}%`, background:colorMap[s.state], borderRadius:99, animation:"dot-bar 0.8s ease forwards" }} />
+                  </div>
+                  {s.nasaa_rank && <div style={{ fontSize:9, color:"#8a8a84", marginTop:2 }}>Rank #{s.nasaa_rank}/50</div>}
+                </div>
+              );
+            })}
+          </div>
+          {lineItemStates.length > 0 && (
+            <div style={{ fontSize:9, color:"#5a5a56", marginTop:8, lineHeight:1.5 }}>
+              * {lineItemStates.join(", ")} include significant legislative line items.
+            </div>
+          )}
+        </div>
+
+        {/* Jobs */}
+        <div style={{ background:"#242422", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"1rem 1.1rem" }}>
+          <div style={{ fontSize:10, fontWeight:500, textTransform:"uppercase", letterSpacing:"0.13em", color:"#861442", marginBottom:10 }}>Creative Jobs</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {states.map(s => {
+              const pct = Math.round(((s.jobs || 0) / maxJobs) * 100);
+              return (
+                <div key={s.state}>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+                    <span style={{ fontSize:11, fontWeight:600, color:"#f0ede8" }}>{s.state}</span>
+                    <span style={{ fontFamily:"var(--font-display)", fontStyle:"italic", fontWeight:300, fontSize:12, color:"#f0ede8" }}>{s.jobs ? s.jobs.toLocaleString() : "N/A"}</span>
+                  </div>
+                  <div style={{ height:5, background:"rgba(255,255,255,0.07)", borderRadius:99, overflow:"hidden" }}>
+                    <div style={{ height:"100%", width:`${pct}%`, background:colorMap[s.state], borderRadius:99, animation:"dot-bar 0.8s ease forwards" }} />
+                  </div>
+                  {s.jobs_pct && <div style={{ fontSize:9, color:"#8a8a84", marginTop:2 }}>{s.jobs_pct}% of workforce</div>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
 // ── C: REGIONAL TABLE ─────────────────────────────────────────────────────────
 function RegionalTable({ regionsData }) {
-  const [sortCol, setSortCol] = useState("totalGdp");
-  const [sortDir, setSortDir] = useState("desc");
+  const [sortCol, setSortCol]     = useState("totalGdp");
+  const [sortDir, setSortDir]     = useState("desc");
+  const [activeRegion, setActiveRegion] = useState(null);
 
   function handleSort(col) {
     if (sortCol === col) setSortDir(d => d==="asc" ? "desc" : "asc");
     else { setSortCol(col); setSortDir("desc"); }
+  }
+
+  function handleRowClick(regionName) {
+    setActiveRegion(prev => prev === regionName ? null : regionName);
   }
 
   const sorted = useMemo(() => [...regionsData].sort((a,b) => {
@@ -166,7 +265,7 @@ function RegionalTable({ regionsData }) {
     <div>
       <SectionHeader
         label="8 Regions · 50 States"
-        sub="Click any column to sort. Pre-computed from BEA ACPSA 2023 + NASAA FY2025."
+        sub="Click any column to sort. Click a region row to expand state-by-state breakdown."
       />
       <div style={{ background:"#242422", border:"1px solid rgba(255,255,255,0.08)", borderRadius:10, overflow:"hidden" }}>
         <table style={{ width:"100%", borderCollapse:"collapse" }}>
@@ -177,33 +276,52 @@ function RegionalTable({ regionsData }) {
               <SortTh label="Avg GDP %"    col="avgGdpPct"    className="hide-mobile" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
               <SortTh label="Jobs"         col="totalJobs"    className="hide-mobile" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
               <SortTh label="Avg $/cap"    col="avgInvPercap" className="hide-mobile" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+              <th style={{ padding:"10px 14px", borderBottom:"1px solid rgba(255,255,255,0.08)", width:32 }} />
             </tr>
           </thead>
           <tbody>
-            {sorted.map(r => (
-              <tr key={r.region} style={{ borderBottom:"1px solid rgba(255,255,255,0.05)", transition:"background 0.15s" }}
-                onMouseEnter={e => e.currentTarget.style.background="rgba(255,255,255,0.025)"}
-                onMouseLeave={e => e.currentTarget.style.background="transparent"}>
-                <td style={{ padding:"11px 14px" }}>
-                  <div style={{ fontFamily:"var(--font-display)", fontWeight:700, fontSize:15, color:"#f0ede8" }}>{r.region}</div>
-                  <div style={{ fontSize:10, color:"#8a8a84", marginTop:2 }}>{r.emoji} {r.stateCount} states</div>
-                </td>
-                <td style={{ padding:"11px 14px", textAlign:"right" }}>
-                  <span style={{ fontFamily:"var(--font-display)", fontStyle:"italic", fontWeight:300, fontSize:16, color:"#f0ede8" }}>{fmtB(r.totalGdp)}</span>
-                </td>
-                <td className="hide-mobile" style={{ padding:"11px 14px", textAlign:"right" }}>
-                  <span style={{ fontFamily:"var(--font-display)", fontStyle:"italic", fontWeight:300, fontSize:16, color:"#f0ede8" }}>{fmtPct(r.avgGdpPct)}</span>
-                </td>
-                <td className="hide-mobile" style={{ padding:"11px 14px", textAlign:"right" }}>
-                  <span style={{ fontFamily:"var(--font-display)", fontStyle:"italic", fontWeight:300, fontSize:16, color:"#f0ede8" }}>{fmt(r.totalJobs)}</span>
-                </td>
-                <td className="hide-mobile" style={{ padding:"11px 14px", textAlign:"right" }}>
-                  <span style={{ fontFamily:"var(--font-display)", fontStyle:"italic", fontWeight:300, fontSize:16, color: r.avgInvPercap ? "#f0ede8" : "#5a5a56" }}>
-                    {r.avgInvPercap ? `$${r.avgInvPercap.toFixed(2)}` : "N/A"}
-                  </span>
-                </td>
-              </tr>
-            ))}
+            {sorted.map(r => {
+              const isActive = activeRegion === r.region;
+              return (
+                <>
+                  <tr key={r.region}
+                    onClick={() => handleRowClick(r.region)}
+                    style={{ borderBottom: isActive ? "none" : "1px solid rgba(255,255,255,0.05)", cursor:"pointer",
+                      background: isActive ? "rgba(134,20,66,0.06)" : "transparent", transition:"background 0.15s" }}
+                    onMouseEnter={e => { if (!isActive) e.currentTarget.style.background="rgba(255,255,255,0.025)"; }}
+                    onMouseLeave={e => { if (!isActive) e.currentTarget.style.background="transparent"; }}>
+                    <td style={{ padding:"11px 14px" }}>
+                      <div style={{ fontFamily:"var(--font-display)", fontWeight:700, fontSize:15, color:"#f0ede8" }}>{r.region}</div>
+                      <div style={{ fontSize:10, color:"#8a8a84", marginTop:2 }}>{r.emoji} {r.stateCount} states</div>
+                    </td>
+                    <td style={{ padding:"11px 14px", textAlign:"right" }}>
+                      <span style={{ fontFamily:"var(--font-display)", fontStyle:"italic", fontWeight:300, fontSize:16, color:"#f0ede8" }}>{fmtB(r.totalGdp)}</span>
+                    </td>
+                    <td className="hide-mobile" style={{ padding:"11px 14px", textAlign:"right" }}>
+                      <span style={{ fontFamily:"var(--font-display)", fontStyle:"italic", fontWeight:300, fontSize:16, color:"#f0ede8" }}>{fmtPct(r.avgGdpPct)}</span>
+                    </td>
+                    <td className="hide-mobile" style={{ padding:"11px 14px", textAlign:"right" }}>
+                      <span style={{ fontFamily:"var(--font-display)", fontStyle:"italic", fontWeight:300, fontSize:16, color:"#f0ede8" }}>{fmt(r.totalJobs)}</span>
+                    </td>
+                    <td className="hide-mobile" style={{ padding:"11px 14px", textAlign:"right" }}>
+                      <span style={{ fontFamily:"var(--font-display)", fontStyle:"italic", fontWeight:300, fontSize:16, color: r.avgInvPercap ? "#f0ede8" : "#5a5a56" }}>
+                        {r.avgInvPercap ? `$${r.avgInvPercap.toFixed(2)}` : "N/A"}
+                      </span>
+                    </td>
+                    <td style={{ padding:"11px 14px", textAlign:"right" }}>
+                      <span style={{ fontSize:12, color: isActive ? "#861442" : "#be3650" }}>{isActive ? "▲" : "▼"}</span>
+                    </td>
+                  </tr>
+                  {isActive && (
+                    <tr key={`${r.region}-expand`}>
+                      <td colSpan={6} style={{ padding:0, borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
+                        <RegionBreakout region={r} />
+                      </td>
+                    </tr>
+                  )}
+                </>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -321,7 +439,7 @@ function StateDetail({ stateData, natTrend, natYears }) {
             {s.jobs ? s.jobs.toLocaleString() : "N/A"}
           </div>
           {s.jobs_pct && (
-            <div style={{ fontSize:11, color:"#c8c4bc", marginBottom:4 }}>
+            <div style={{ fontSize:11, color:"#f0ede8", marginBottom:4 }}>
               {s.jobs_pct}% of workforce
             </div>
           )}
@@ -339,7 +457,7 @@ function StateDetail({ stateData, natTrend, natYears }) {
             {s.gdp_pct ? `${s.gdp_pct}%` : "N/A"}
           </div>
           {s.gdp_b && (
-            <div style={{ fontSize:11, color:"#c8c4bc", marginBottom:4 }}>
+            <div style={{ fontSize:11, color:"#f0ede8", marginBottom:4 }}>
               ${s.gdp_b}B total
             </div>
           )}
@@ -357,7 +475,7 @@ function StateDetail({ stateData, natTrend, natYears }) {
             {s.inv_percap ? `$${s.inv_percap.toFixed(2)}` : "N/A"}
           </div>
           {s.inv_percap && (
-            <div style={{ fontSize:11, color:"#c8c4bc", marginBottom:4 }}>
+            <div style={{ fontSize:11, color:"#f0ede8", marginBottom:4 }}>
               per capita · {s.inv_total ? fmtM(s.inv_total) + " total" : ""}
             </div>
           )}
@@ -428,7 +546,7 @@ export default function App() {
         :root {
           --bg:#1a1a18; --surface:#242422; --surface2:#2e2e2b;
           --border:rgba(255,255,255,0.08); --border2:rgba(255,255,255,0.14);
-          --text:#f0ede8; --muted:#c8c4bc;
+          --text:#f0ede8; 
           --font-display:'Fraunces',Georgia,serif; --font-body:'Plus Jakarta Sans',sans-serif; --radius:10px;
         }
         body { font-family:var(--font-body); background:#1a1a18; }
@@ -547,7 +665,7 @@ export default function App() {
             <h2 style={{ fontFamily:"var(--font-display)", fontWeight:300, fontSize:"clamp(20px,4vw,28px)", letterSpacing:"-0.02em", color:"#f0ede8", marginBottom:10, lineHeight:1.2 }}>
               Book a <em style={{ fontStyle:"italic", color:"#be3650" }}>Vision Call</em>
             </h2>
-            <p style={{ fontSize:14, fontWeight:300, lineHeight:1.75, color:"#c8c4bc", marginBottom:20, maxWidth:520 }}>
+            <p style={{ fontSize:14, fontWeight:300, lineHeight:1.75, color:"#f0ede8", marginBottom:20, maxWidth:520 }}>
               The data tells you where the opportunity is. A Vision Call with Monica turns it into a strategy — whether you're a regional developer, arts administrator, or entrepreneur ready to capitalize on your state's creative economy.
             </p>
             <a href="https://monicapoling.com/work-with-monica" target="_blank" rel="noopener noreferrer"
