@@ -1,11 +1,11 @@
 // ─── api/regions.js ───────────────────────────────────────────────────────────
 // Vercel serverless function — GET /api/regions
-// Returns pre-computed regional aggregates from BEA + NASAA data.
+// Returns pre-computed regional aggregates + full state detail from BEA + NASAA.
 // No AI call. Instant.
 
 import { BEA_DATA } from '../data/bea_data.js';
 import { NASAA_DATA, NASAA_TOTALS, NASAA_RANKS } from '../data/nasaa_data.js';
-import { REGIONS } from '../data/regions.js';
+import { REGIONS } from '../data/region-definitions.js';
 
 const NAT = BEA_DATA.national;
 
@@ -27,9 +27,9 @@ function computeRegion(regionName) {
   let stateDetails = [];
 
   for (const state of states) {
-    const bea  = BEA_DATA.states[state]    || {};
+    const bea     = BEA_DATA.states[state]    || {};
     const nasaaArr = (NASAA_DATA.states && NASAA_DATA.states[state]) || [];
-    const tot  = (NASAA_TOTALS.states && NASAA_TOTALS.states[state]) || {};
+    const tot     = (NASAA_TOTALS.states && NASAA_TOTALS.states[state]) || {};
 
     if (bea.gdp_b)    totalGdp  += bea.gdp_b;
     if (bea.jobs)     totalJobs += bea.jobs;
@@ -45,47 +45,45 @@ function computeRegion(regionName) {
 
     stateDetails.push({
       state,
-      gdp_b:    bea.gdp_b    ?? null,
-      gdp_pct:  bea.gdp_pct  ?? null,
-      jobs:     bea.jobs     ?? null,
-      jobs_pct: bea.jobs_pct ?? null,
-      inv_percap: percap,
-      inv_total:  tot.total_fy2025 ?? null,
-      nasaa_rank: (NASAA_RANKS.states && NASAA_RANKS.states[state]) ?? null,
+      gdp_b:        bea.gdp_b    ?? null,
+      gdp_pct:      bea.gdp_pct  ?? null,
+      jobs:         bea.jobs     ?? null,
+      jobs_pct:     bea.jobs_pct ?? null,
+      inv_percap:   percap,
+      inv_total:    tot.total_fy2025    ?? null,
+      inv_baseline: tot.baseline_fy2025 ?? null,
+      nasaa_rank:   (NASAA_RANKS.states && NASAA_RANKS.states[state]) ?? null,
+      nasaa_trend:  nasaaArr,
+      nasaa_years:  NASAA_DATA.years || [2022, 2023, 2024, 2025],
     });
   }
 
   const avg = arr => arr.length ? Math.round((arr.reduce((a,b) => a+b,0) / arr.length) * 10) / 10 : null;
 
-  const avgGdpPct  = avg(gdpPcts);
-  const avgJobsPct = avg(jobsPcts);
+  const avgGdpPct    = avg(gdpPcts);
+  const avgJobsPct   = avg(jobsPcts);
   const avgInvPercap = avg(invPercaps);
 
-  // Score: 50 = at national avg, scaled linearly
   const gdpScore  = avgGdpPct  ? Math.min(100, Math.round((avgGdpPct  / NAT.gdp_pct)  * 50)) : 50;
   const jobsScore = avgJobsPct ? Math.min(100, Math.round((avgJobsPct / NAT.jobs_pct) * 50)) : 50;
   const overallScore = Math.round(gdpScore * 0.6 + jobsScore * 0.4);
 
   return {
-    region:       regionName,
+    region:        regionName,
     emoji,
     tagline,
-    stateCount:   states.length,
+    stateCount:    states.length,
     states,
     stateDetails,
-    totalGdp:     Math.round(totalGdp * 10) / 10,
+    totalGdp:      Math.round(totalGdp * 10) / 10,
     totalJobs,
     avgGdpPct,
     avgJobsPct,
     avgInvPercap,
-    topState:     topState.name,
+    topState:      topState.name,
     overallScore,
-    scoreColor:   scoreColor(overallScore),
-    // national benchmarks for client-side reference
-    nat: {
-      gdp_pct:  NAT.gdp_pct,
-      jobs_pct: NAT.jobs_pct,
-    }
+    scoreColor:    scoreColor(overallScore),
+    nat: { gdp_pct: NAT.gdp_pct, jobs_pct: NAT.jobs_pct }
   };
 }
 
@@ -106,6 +104,9 @@ export default function handler(req, res) {
         gdp_pct:  NAT.gdp_pct,
         jobs:     NAT.jobs,
         jobs_pct: NAT.jobs_pct,
+        nasaa_nat_percap: (NASAA_DATA.national || []).filter(v => v != null).pop() ?? null,
+        nasaa_years: NASAA_DATA.years || [2022, 2023, 2024, 2025],
+        nasaa_national_trend: NASAA_DATA.national || [],
       }
     });
   } catch (err) {
